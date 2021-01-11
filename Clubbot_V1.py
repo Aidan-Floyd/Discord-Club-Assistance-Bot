@@ -49,13 +49,13 @@ class commands:
 
         # Identify the command needed
         command_dict = {
-            ['voluntell'] : 'self.voluntell'
+            'voluntell' : 'self.voluntell()'
         }
 
         self.command = command_dict[command]                                                           
         
 
-    def advance(self):
+    async def advance(self):
         await eval(self.command)
 
     async def voluntell(self):
@@ -65,14 +65,18 @@ class commands:
         except:
             global command_dict
             del command_dict[self.author]
-        embed = command_embeds.voluntell(None, member)
-        await self.channel.send(embed=embed)
+        try:
+            embed = command_embeds.voluntell(None, member)
+            await self.channel.send(embed=embed)
+        except:
+            return
 
 
         
 class command_init:
 
-    def __init__(self):
+    def __init__(self): 
+
         pass
 
     async def greet(self, message):
@@ -95,7 +99,7 @@ class command_init:
 
         if check_command_keywords(['voluntell all', 'v all'], message) == True:
             await message.guild.chunk()
-            member_list = [member for member in message.guild.members ]#if member.bot == False]
+            member_list = [member for member in message.guild.members if member.bot == False]
 
         elif check_command_keywords(['voluntell', 'v'], message) == True:
             await message.guild.chunk()
@@ -105,24 +109,25 @@ class command_init:
 
         random.shuffle(member_list)
 
-        for member in member_list:
-            embed = command_embeds.voluntell(None, member)
-            await message.channel.send(embed=embed)
+        member = member_list.pop(0)
+
+        embed = command_embeds.voluntell(None, member)
+        await message.channel.send(embed=embed)
 
         command_object = commands(message, 'voluntell', member_list)
 
         global command_dict
-        command_dict[message.author].append(command_object)
+        command_dict[message.author] = command_object
 
 
     async def run_commands(self, message):
         '''Run all possible commands (Triggered on a per-command basis)
         '''
+
         try:
-            await asyncio.wait_for([
-                self.greet(message),
-                self.voluntell(message)
-            ], timeout=3600)
+            await self.voluntell(message)
+            await self.greet(message)
+
         except asyncio.TimeoutError:
             pass
 
@@ -145,18 +150,18 @@ async def on_ready():
 @client.event
 async def on_message(message):
     if message.author == client.user:
-        embed_name = message.Embeds[0].fields[0].name.lower()
+        embed_name = message.embeds[0].fields[0].name.lower()
 
         emojis = emoji_class()
         name_dict = {
-            ['voluntell'] : 'iterable'
+            'voluntell' : 'iterable'
         }
 
         if name_dict[embed_name] == 'iterable':
-            message.add_reaction(emojis.next_track)
-            message.add_reaction(emojis.stop_sign)
+            await message.add_reaction(emojis.next_track)
+            await message.add_reaction(emojis.stop_sign)
 
-        pass
+        return
 
     commands = command_init()
 
@@ -164,38 +169,51 @@ async def on_message(message):
         await commands.run_commands(message)
 
 @client.event
-async def on_reaction_add(reaction):
-    if reaction.author == client.user:
-        pass
+async def on_reaction_add(reaction, user):
+    if user == client.user:
+        return
 
     global command_dict
 
     emojis = emoji_class()
-    advance_flag = False
 
     reaction_dict = {
-        [emojis.stop_sign] : 'command_dict.pop(reaction.author)',
-        [emojis.next_track] : 'advance_flag = True'
+        emojis.stop_sign : 'command_dict.pop(user)',
+        emojis.next_track : 'advance'
     }
 
-    eval(reaction_dict[reaction.emoji])
+    reaction_action = reaction_dict[reaction.emoji]
 
-    if advance_flag == True:
+    '''This whole convoluted section allows the exec function to reassign local variables.
+    For security reasons, exec doesn't let you do this in an elegant way because of its
+    potential use by malicious actors. Even if you've hardcoded in the strings. And guess what? It doesn't even work'''
 
-        command_object = command_dict[reaction.author]
-        command_object.advance()
+    #new_locals = {}
+    try:
+        exec(reaction_action)
+    except:
+        pass
+    #for k,v in new_locals.items(): locals()[k] = v
 
+    '''End Convolution'''
 
-
-
-# Boot Up
-if path.exists('token.txt'):
-    with open('token.txt') as tokenFile:
-        token = tokenFile.read() 
-        client.run(token)
-        
-else:
-    with open('token.txt', "w") as token:
-        token.write('')
-    raise EOFError("No Token.txt found. Please add a token")
+    flag = reaction_action
     
+    if flag == 'advance':
+        command_object = command_dict[user]
+        await command_object.advance()
+
+
+if __name__ == '__main__':
+
+    # Boot Up
+    if path.exists('token.txt'):
+        with open('token.txt') as tokenFile:
+            token = tokenFile.read() 
+            client.run(token)
+            
+    else:
+        with open('token.txt', "w") as token:
+            token.write('')
+        raise EOFError("No Token.txt found. Please add a token")
+        
