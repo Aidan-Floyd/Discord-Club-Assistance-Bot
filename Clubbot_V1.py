@@ -103,9 +103,17 @@ class command_init:
 
         elif check_command_keywords(['voluntell', 'v'], message) == True:
             await message.guild.chunk()
-            member_list = [member for member in message.guild.members if str(member.status)=='online' and member.bot==False]
+
+            member_list = []
+            for member in message.guild.members:
+                if str(member.status)=='online':
+                    if member.bot == False:
+                        member_list.append(member)
+
+
+            #member_list = [member for member in message.guild.members if str(member.status)=='online' or str(member.status)=='' and member.bot==False]
         else:
-            pass
+            return
 
         random.shuffle(member_list)
 
@@ -125,8 +133,8 @@ class command_init:
         '''
 
         try:
-            await self.voluntell(message)
             await self.greet(message)
+            await self.voluntell(message)
 
         except asyncio.TimeoutError:
             pass
@@ -150,16 +158,25 @@ async def on_ready():
 @client.event
 async def on_message(message):
     if message.author == client.user:
-        embed_name = message.embeds[0].fields[0].name.lower()
+        
+        # If the bot sent an embed, find out function it's attached to
+        embed_name = None
+        try:
+            embed_name = message.embeds[0].fields[0].name.lower()
+        except:
+            pass
+
 
         emojis = emoji_class()
         name_dict = {
             'voluntell' : 'iterable'
         }
-
-        if name_dict[embed_name] == 'iterable':
-            await message.add_reaction(emojis.next_track)
-            await message.add_reaction(emojis.stop_sign)
+        try:
+            if name_dict[embed_name] == 'iterable':
+                await message.add_reaction(emojis.next_track)
+                await message.add_reaction(emojis.stop_sign)
+        except:
+            pass
 
         return
 
